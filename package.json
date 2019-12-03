@@ -1,6 +1,6 @@
 {
-  "name": "le-react-web-coder",
-  "description": "coder of le react web project",
+  "name": "le-htmlui-coder",
+  "description": "coder of project base on html ui",
   "version": "1.0.0",
   "main": "out/index.js",
   "scripts": {
