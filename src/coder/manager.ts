@@ -1,8 +1,8 @@
 import { LeUIHtml } from "../typings";
-import Polygon from "polygon";
 import { CoderClass } from "./coder-class";
 import { ReactWebCoder } from "./react-web/react-web";
 import { cloneDeep } from "lodash";
+import { CoderManagerUtil } from "./manager-util";
 
 type ChildrenNode = { [key: string]: ChildrenNode };
 
@@ -11,13 +11,18 @@ export interface CoderManagerConfig {
   excludeArea?: []; // [[0,0],[100, 6.3] 暂未实现
 }
 
+/**
+ * 程序员管理
+ * 统一处理UI稿，向 Coder 分发数据
+ * @export
+ * @class CoderManager
+ */
 export class CoderManager {
   private _config?: CoderManagerConfig;
   private _coders: Map<string, CoderClass>;
   constructor() {
     this._coders = new Map();
   }
-
   public registerCoder(id: string, coder: CoderClass) {
     this._coders.set(id, coder);
   }
@@ -25,69 +30,17 @@ export class CoderManager {
     this._config = config;
     window.onload = () => {
       setTimeout(() => {
+        // 开始编程
         this._coder();
       }, 2000);
     };
   }
-
   private async _coder() {
     const artboards = await this.read_artboards();
     this._coders.forEach(coder => {
       coder.onArtboardsReady(artboards);
     });
     console.log(artboards, "artboardsartboards");
-  }
-
-  private _getLayerPolygon(layer: LeUIHtml.Layer): Polygon {
-    return new Polygon([
-      [layer.location.left, layer.location.top],
-      [layer.location.left + layer.size.width, layer.location.top],
-      [
-        layer.location.left + layer.size.width,
-        layer.location.top + layer.size.height
-      ],
-      [layer.location.left, layer.location.top + layer.size.height]
-    ]);
-  }
-
-  private _delay(msecond: number) {
-    return new Promise(res =>
-      setTimeout(() => {
-        res();
-      }, msecond)
-    );
-  }
-  private _getAttrValue(attr: Attr) {
-    return parseInt(attr.value.replace(/px/, ""));
-  }
-
-  private _getPxPropertyValue(rex: RegExp, text: string) {
-    return parseInt(
-      text
-        .replace(/\s/, "")
-        .replace(rex, "")
-        .replace(/px/, "")
-    );
-  }
-
-  private _getStringProperties(text: string) {
-    let pros: { property: string; value: string }[] = [];
-    text
-      .replace(/\s/g, "")
-      .split(";")
-      .forEach(pair => {
-        if (!pair) {
-          return;
-        }
-        const pair_splited = pair.split(":");
-        if (pair_splited[0] && pair_splited[1]) {
-          pros.push({
-            property: pair_splited[0],
-            value: pair_splited[1]
-          });
-        }
-      });
-    return pros;
   }
 
   private _flatMapDeepTreeLayers(
@@ -111,22 +64,17 @@ export class CoderManager {
       // for (let i = 0; i < 1; i++) {
       const element = dom_artboards[i];
       (element as any).click();
-      await this._delay(200);
+      await CoderManagerUtil.delay(200);
       const layers = await this._readLayers();
 
-      // let allLayerIndexTreeMap: AllLayerIndexTreeMap = new Map();
-      let childrensMap: Map<string, ChildrenNode> = new Map();
+      // 父id表
       let parentMap: Map<string, string> = new Map();
+      // children表
+      let childrensMap: Map<string, ChildrenNode> = new Map();
       const allLayersMap = layers.reduce((p, c) => p.set(c.id, c), new Map());
 
+      // 删除父子引用
       const deleteParentAChild = (parentId: string, childId: string) => {
-        // 删除老父子引用
-        // console.log(
-        //   parentId,
-        //   childId,
-        //   cloneDeep(childrensMap),
-        //   "deleteParentAChild start"
-        // );
         parentMap.delete(childId);
         const histroy_parent_children = childrensMap.get(parentId);
         if (histroy_parent_children) {
@@ -154,6 +102,7 @@ export class CoderManager {
           : parentId;
       };
 
+      // 访问栈
       const topParentVisitQueue: (i: string, result?: string[]) => string[] = (
         parentId: string,
         result: string[] = []
@@ -165,18 +114,7 @@ export class CoderManager {
         return result.reverse();
       };
 
-      // const getLayerObject = (queue: string[]) => {
-      //   let object: ChildrenNode | undefined;
-      //   queue.forEach(key => {
-      //     if (!object) {
-      //       object = childrensMap.get(key);
-      //     } else {
-      //       object = object[key];
-      //     }
-      //   });
-      //   return object || {};
-      // };
-
+      // 添加引用
       const addParentAChild = (parentId: string, childId: string) => {
         if (parentMap.get(childId) === parentId) {
           return;
@@ -198,15 +136,17 @@ export class CoderManager {
           }
         }
       };
+
+      // 图层对比
       layers.forEach(layer => {
-        const polygon = this._getLayerPolygon(layer);
+        const polygon = CoderManagerUtil.getLayerPolygon(layer);
         layers.forEach(otherlayer => {
           if (layer.id === otherlayer.id) return;
           let layer_children = childrensMap.get(layer.id);
           if (layer_children && layer_children[otherlayer.id]) {
             return;
           }
-          const other_polygon = this._getLayerPolygon(otherlayer);
+          const other_polygon = CoderManagerUtil.getLayerPolygon(otherlayer);
           if (polygon.containsPolygon(other_polygon)) {
             let parentId = parentMap.get(otherlayer.id);
             let oldParentId;
@@ -214,7 +154,7 @@ export class CoderManager {
             if (parentId) {
               const history_parent_layer = allLayersMap.get(parentId);
               if (history_parent_layer) {
-                const history_parent_polygon = this._getLayerPolygon(
+                const history_parent_polygon = CoderManagerUtil.getLayerPolygon(
                   history_parent_layer
                 );
                 if (history_parent_polygon.containsPolygon(polygon)) {
@@ -241,13 +181,6 @@ export class CoderManager {
               addParentAChild(oldParentId, layer.id);
             }
             addParentAChild(parentId, otherlayer.id);
-            // console.log(
-            //   oldParentId,
-            //   parentId,
-            //   layer.id,
-            //   otherlayer.id,
-            //   "otherlayer"
-            // );
           }
         });
       });
@@ -257,6 +190,8 @@ export class CoderManager {
         }
       });
       console.log(cloneDeep(childrensMap), "childrensMap");
+
+      // 递归计算
       const recursiveGetChildrenFromNode: (
         node: ChildrenNode,
         result?: LeUIHtml.LayerTreeNode[]
@@ -279,6 +214,8 @@ export class CoderManager {
         });
         return result;
       };
+
+      // 生成 treeLayers
       let treeLayers: LeUIHtml.LayerTreeNode[] = [];
       childrensMap.forEach((node, layerId) => {
         const layer = allLayersMap.get(layerId);
@@ -294,6 +231,7 @@ export class CoderManager {
         }
       });
 
+      // 加工 treeLayers
       let handled_treeLayers = this._treeLayers_handle(treeLayers);
       artboards.push({
         id: `artboard-${i}`,
@@ -304,7 +242,14 @@ export class CoderManager {
     }
     return artboards;
   }
-
+  /**
+   * 图层算法层
+   *
+   * @private
+   * @param {LeUIHtml.LayerTreeNode[]} treeLayers
+   * @returns {LeUIHtml.LayerTreeNode[]}
+   * @memberof CoderManager
+   */
   private _treeLayers_handle(
     treeLayers: LeUIHtml.LayerTreeNode[]
   ): LeUIHtml.LayerTreeNode[] {
@@ -312,11 +257,11 @@ export class CoderManager {
     let _treeLayers: LeUIHtml.LayerTreeNode[] = [];
     const layer_feature_map: Map<string, LeUIHtml.Layer> = new Map();
 
+    // 顶部对齐分组合并
     const layer_feature_merge_map: Map<
       string,
       Map<string, LeUIHtml.LayerTreeNode>
     > = new Map();
-    // 对齐顶部分组
     treeLayers.forEach(layer => {
       if (layer.layer.merged) {
         return;
@@ -376,6 +321,8 @@ export class CoderManager {
         });
       }
     });
+
+    // TODO 左对齐分组合并
 
     treeLayers.forEach(layer => {
       if (this._config) {
@@ -447,12 +394,12 @@ export class CoderManager {
           content: "",
           type: LeUIHtml.LayerType.element,
           size: {
-            width: this._getAttrValue(actual_width),
-            height: this._getAttrValue(actual_height)
+            width: CoderManagerUtil.getAttrValue(actual_width),
+            height: CoderManagerUtil.getAttrValue(actual_height)
           },
           percentageSize: {
-            width: this._getAttrValue(percentage_width),
-            height: this._getAttrValue(percentage_height)
+            width: CoderManagerUtil.getAttrValue(percentage_width),
+            height: CoderManagerUtil.getAttrValue(percentage_height)
           },
           location: {
             top: 0,
@@ -466,20 +413,26 @@ export class CoderManager {
         };
         style.value.split(";").forEach(text => {
           if (/^left\:/.test(text.replace(/\s/, ""))) {
-            layer.location.left = this._getPxPropertyValue(/left\:/, text);
+            layer.location.left = CoderManagerUtil.getPxPropertyValue(
+              /left\:/,
+              text
+            );
           }
           if (/^top\:/.test(text.replace(/\s/, ""))) {
-            layer.location.top = this._getPxPropertyValue(/top\:/, text);
+            layer.location.top = CoderManagerUtil.getPxPropertyValue(
+              /top\:/,
+              text
+            );
           }
         });
 
         (element as any).click();
-        await this._delay(200);
+        await CoderManagerUtil.delay(200);
         const cssPanel = document.getElementById("css-panel");
         if (cssPanel) {
           const telement = cssPanel.querySelector("textarea#css");
           if (telement && telement.innerHTML) {
-            layer.codeTemplate.css.codes = this._getStringProperties(
+            layer.codeTemplate.css.codes = CoderManagerUtil.getStringProperties(
               telement.innerHTML
             );
           }
@@ -512,7 +465,15 @@ export class CoderManager {
     }
     return layers;
   }
-
+  /**
+   * 图层类型分析器
+   *
+   * @private
+   * @param {LeUIHtml.Layer} layer
+   * @param {HTMLElement} [inspector]
+   * @returns {LeUIHtml.LayerType}
+   * @memberof CoderManager
+   */
   private _getLayerType(
     layer: LeUIHtml.Layer,
     inspector?: HTMLElement

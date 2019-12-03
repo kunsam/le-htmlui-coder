@@ -11,9 +11,11 @@ import "antd/lib/select/style/index.css";
 import "antd/lib/message/style/index.css";
 // const prettier = require("prettier");
 
-// 需要文字下降梯度，用于指定文字tag类型
-// 需要合并多余图层
+
+
 // 空图层处理
+// 需要合并多余图层
+// 需要文字下降梯度，用于指定文字tag类型
 
 export interface ReactWebLayerNodeData {
   layer: LeUIHtml.Layer;
@@ -32,6 +34,16 @@ export class ReactWebCoder implements CoderClass {
   }
   // className -> layerId
   private _classNameQueryLayerMaps: Map<string, string>[];
+
+  /**
+   * 递归html树
+   *
+   * @private
+   * @param {ReactWebLayerNode[]} treeLayers
+   * @param {number} [depth=0]
+   * @returns {{ html: string; imports: string[] }}
+   * @memberof ReactWebCoder
+   */
   private _recursiveGetHtml(
     treeLayers: ReactWebLayerNode[],
     depth: number = 0
@@ -97,7 +109,15 @@ export class ReactWebCoder implements CoderClass {
     });
     return result;
   }
-
+  /**
+   * 递归CSs树
+   *
+   * @private
+   * @param {ReactWebLayerNode[]} treeLayers
+   * @param {number} [depth=0]
+   * @returns {string}
+   * @memberof ReactWebCoder
+   */
   private _recursiveGetCss(
     treeLayers: ReactWebLayerNode[],
     depth: number = 0
@@ -127,9 +147,15 @@ export class ReactWebCoder implements CoderClass {
     });
     return string;
   }
+  /**
+   * 画板算法层
+   *
+   * @param {LeUIHtml.Artboard[]} artboards
+   * @returns {LeUIHtml.Artboard[]}
+   * @memberof ReactWebCoder
+   */
   public handleArtboards(artboards: LeUIHtml.Artboard[]): LeUIHtml.Artboard[] {
     let new_artboards: LeUIHtml.Artboard[] = [];
-    // 图层合并算法 目前暂时不用
     artboards.forEach(art => {
       new_artboards.push(art);
     });
@@ -137,18 +163,17 @@ export class ReactWebCoder implements CoderClass {
     return new_artboards;
   }
 
-  private _setQueryMap(treeLayers: ReactWebLayerNode[], index: number) {
-    treeLayers.forEach(tl => {
-      if (tl.tagProps.className) {
-        this._classNameQueryLayerMaps[index].set(
-          tl.tagProps.className.replace(/\"/g, ""),
-          tl.layer.id
-        );
-      }
-      this._setQueryMap(tl.children, index);
-    });
-  }
-
+  /**
+   * 图层树映射
+   *
+   * @param {LeUIHtml.LayerTreeNode[]} treeLayers
+   * @param {ReactWebLayerNodeData} [parent=null]
+   * @param {number} [containerIndex=1]
+   * @param {number} [imgIndex=1]
+   * @param {number} [listIndex=1]
+   * @returns {ReactWebLayerNode[]}
+   * @memberof ReactWebCoder
+   */
   public handleTreeLayers(
     treeLayers: LeUIHtml.LayerTreeNode[],
     parent: ReactWebLayerNodeData = null,
@@ -250,71 +275,72 @@ export class ReactWebCoder implements CoderClass {
     return reactTreeLayers;
   }
 
-  public onArtboardsReady(artboards: LeUIHtml.Artboard[]) {
-    var zip = new JSZip();
-
-    let chooseArtBoardIndex: number | null = null;
+  private _onKeyDown(e: KeyboardEvent, artboards: LeUIHtml.Artboard[]) {
     let queryName: string = "";
-    document.addEventListener("keydown", e => {
-      if (e.which === 70) {
-        Modal.confirm({
-          title: "输出元素样式名查找",
-          content: (
-            <div>
-              <h3>请选择对应的ArtBoard!</h3>
-              <Select
-                style={{ width: 200 }}
-                onChange={(value: number) => {
-                  chooseArtBoardIndex = value;
-                }}
-              >
-                {artboards.map((data, index) => (
-                  <Select.Option
-                    key={data.id}
-                    value={index}
-                  >{`artboard${index}`}</Select.Option>
-                ))}
-              </Select>
-              <Input
-                onChange={e => {
-                  const value = e.target.value;
-                  queryName = value;
-                }}
-              ></Input>
-            </div>
-          ),
-          onOk: () => {
-            console.log(this, "OK");
-            if (chooseArtBoardIndex !== null && queryName) {
-              const queryMap = this._classNameQueryLayerMaps[
-                chooseArtBoardIndex
-              ];
-              if (queryMap) {
-                let layerId = queryMap.get(queryName);
-                if (layerId) {
-                  if (layerId.split(".")[1]) {
-                    message.info("该样式是一个容器");
-                    layerId = layerId.split(".")[0];
-                  }
-                  const layer = document.getElementById(`${layerId}`);
-                  if (layer) {
-                    layer.click();
-                  }
-                } else {
-                  message.info("未找到节点");
+    let chooseArtBoardIndex: number | null = null;
+    if (e.which === 70) {
+      Modal.confirm({
+        title: "输出元素样式名查找",
+        content: (
+          <div>
+            <h3>请选择对应的ArtBoard!</h3>
+            <Select
+              style={{ width: 200 }}
+              onChange={(value: number) => {
+                chooseArtBoardIndex = value;
+              }}
+            >
+              {artboards.map((data, index) => (
+                <Select.Option
+                  key={data.id}
+                  value={index}
+                >{`artboard${index}`}</Select.Option>
+              ))}
+            </Select>
+            <Input
+              onChange={e => {
+                const value = e.target.value;
+                queryName = value;
+              }}
+            ></Input>
+          </div>
+        ),
+        onOk: () => {
+          console.log(this, "OK");
+          if (chooseArtBoardIndex !== null && queryName) {
+            const queryMap = this._classNameQueryLayerMaps[chooseArtBoardIndex];
+            if (queryMap) {
+              let layerId = queryMap.get(queryName);
+              if (layerId) {
+                if (layerId.split(".")[1]) {
+                  message.info("该样式是一个容器");
+                  layerId = layerId.split(".")[0];
                 }
+                const layer = document.getElementById(`${layerId}`);
+                if (layer) {
+                  layer.click();
+                }
+              } else {
+                message.info("未找到节点");
               }
             }
-          },
-          onCancel: () => {
-            queryName = "";
-            chooseArtBoardIndex = null;
           }
-        });
-      }
-    });
-    artboards = this.handleArtboards(artboards);
-
+        },
+        onCancel: () => {
+          queryName = "";
+          chooseArtBoardIndex = null;
+        }
+      });
+    }
+  }
+  /**
+   * 导出结果
+   *
+   * @param {LeUIHtml.Artboard[]} artboards
+   * @memberof ReactWebCoder
+   */
+  public output(artboards: LeUIHtml.Artboard[]) {
+    var zip = new JSZip();
     artboards.forEach((artboard, index) => {
       const treeLayers = this.handleTreeLayers(artboard.treeLayers);
       this._classNameQueryLayerMaps[index] = new Map();
@@ -352,10 +378,35 @@ export class ReactWebCoder implements CoderClass {
         artboardFolder.file(`css.scss`, css_blob);
       }
     });
-
     zip.generateAsync({ type: "blob" }).then(content => {
       FileSaver.saveAs(content, "Data.zip");
     });
   }
+
+  public onArtboardsReady(artboards: LeUIHtml.Artboard[]) {
+    artboards = this.handleArtboards(artboards);
+    document.addEventListener("keydown", e => this._onKeyDown(e, artboards));
+    this.output(artboards);
+  }
+  /**
+   * 生成查询表
+   *
+   * @private
+   * @param {ReactWebLayerNode[]} treeLayers
+   * @param {number} index
+   * @memberof ReactWebCoder
+   */
+  private _setQueryMap(treeLayers: ReactWebLayerNode[], index: number) {
+    treeLayers.forEach(tl => {
+      if (tl.tagProps.className) {
+        this._classNameQueryLayerMaps[index].set(
+          tl.tagProps.className.replace(/\"/g, ""),
+          tl.layer.id
+        );
+      }
+      this._setQueryMap(tl.children, index);
+    });
+  }
+
   public onDone() {}
 }
