@@ -3,6 +3,7 @@ import { CoderClass } from "./coder-class";
 import { ReactWebCoder } from "./react-web/react-web";
 import { cloneDeep } from "lodash";
 import { CoderManagerUtil } from "./manager-util";
+import Polygon from "polygon";
 
 type ChildrenNode = { [key: string]: ChildrenNode };
 
@@ -61,10 +62,10 @@ export class CoderManager {
     const dom_artboards = document.getElementsByClassName("artboard");
     let artboards = [];
     for (let i = 0; i < dom_artboards.length; i++) {
-      // for (let i = 0; i < 1; i++) {
+    // for (let i = 0; i < 1; i++) {
       const element = dom_artboards[i];
       (element as any).click();
-      await CoderManagerUtil.delay(200);
+      await CoderManagerUtil.delay(100);
       const layers = await this._readLayers();
 
       // 父id表
@@ -75,6 +76,8 @@ export class CoderManager {
 
       // 删除父子引用
       const deleteParentAChild = (parentId: string, childId: string) => {
+        console.log(parentId, childId, "deleteParentAChild");
+        // console.log(cloneDeep(childrensMap), "deleteParentAChild before");
         parentMap.delete(childId);
         const histroy_parent_children = childrensMap.get(parentId);
         if (histroy_parent_children) {
@@ -90,10 +93,13 @@ export class CoderManager {
             _topParentVisitQueue.forEach(key => {
               current_layer_object = current_layer_object[key];
             });
-            delete current_layer_object[childId];
-            childrensMap.set(_topParentId, top_parent_layer);
+            if (current_layer_object) {
+              delete current_layer_object[childId];
+              childrensMap.set(_topParentId, top_parent_layer);
+            }
           }
         }
+        // console.log(cloneDeep(childrensMap), "deleteParentAChild after");
       };
 
       const topParentId: (i: string) => string = (parentId: string) => {
@@ -116,6 +122,8 @@ export class CoderManager {
 
       // 添加引用
       const addParentAChild = (parentId: string, childId: string) => {
+        console.log(parentId, childId, "addParentAChild");
+        // console.log(cloneDeep(childrensMap), "addParentAChild before");
         if (parentMap.get(childId) === parentId) {
           return;
         }
@@ -135,6 +143,7 @@ export class CoderManager {
             parentMap.set(childId, parentId);
           }
         }
+        // console.log(cloneDeep(childrensMap), "addParentAChild after");
       };
 
       // 图层对比
@@ -147,7 +156,10 @@ export class CoderManager {
             return;
           }
           const other_polygon = CoderManagerUtil.getLayerPolygon(otherlayer);
-          if (polygon.containsPolygon(other_polygon)) {
+          if (polygon.equal(other_polygon)) {
+            return;
+          }
+          if (CoderManagerUtil.inCludeContainsPolygon(layer, otherlayer)) {
             let parentId = parentMap.get(otherlayer.id);
             let oldParentId;
             // 找到最小的parent 写入 删除其他parent的绑定关系
@@ -157,14 +169,24 @@ export class CoderManager {
                 const history_parent_polygon = CoderManagerUtil.getLayerPolygon(
                   history_parent_layer
                 );
-                if (history_parent_polygon.containsPolygon(polygon)) {
+                if (
+                  CoderManagerUtil.inCludeContainsPolygon(
+                    history_parent_layer,
+                    layer
+                  )
+                ) {
                   oldParentId = parentId;
                   deleteParentAChild(oldParentId, otherlayer.id);
                   // 老父亲链接到layer
                   parentId = layer.id;
                 } else {
                   // 采用老图层作为父节点
-                  if (!polygon.containsPolygon(history_parent_polygon)) {
+                  if (
+                    !CoderManagerUtil.inCludeContainsPolygon(
+                      layer,
+                      history_parent_layer
+                    )
+                  ) {
                     // 谁面积更小用谁
                     if (polygon.area() < history_parent_polygon.area()) {
                       oldParentId = parentId;
@@ -184,11 +206,7 @@ export class CoderManager {
           }
         });
       });
-      layers.forEach(layer => {
-        if (!parentMap.has(layer.id) && !childrensMap.has(layer.id)) {
-          childrensMap.set(layer.id, {});
-        }
-      });
+
       console.log(cloneDeep(childrensMap), "childrensMap");
 
       // 递归计算
@@ -257,6 +275,7 @@ export class CoderManager {
     let _treeLayers: LeUIHtml.LayerTreeNode[] = [];
     const layer_feature_map: Map<string, LeUIHtml.Layer> = new Map();
 
+    // 列表合并算法优化
     // 顶部对齐分组合并
     const layer_feature_merge_map: Map<
       string,
@@ -323,7 +342,7 @@ export class CoderManager {
     });
 
     // TODO 左对齐分组合并
-
+    let layersTitleMap: Map<string, LeUIHtml.Layer> = new Map();
     treeLayers.forEach(layer => {
       if (this._config) {
         if (this._config.excludeLayers) {
@@ -350,14 +369,20 @@ export class CoderManager {
           }
         }
       }
-
       layer_feature_map.set(layer_feature, layer.layer);
 
+      const sameTitleLayer = layersTitleMap.get(layer.layer.title);
+      // 过滤同级同名图层
+      if (sameTitleLayer) {
+        return;
+      }
+      layersTitleMap.set(layer.layer.title, layer.layer);
       _treeLayers.push({
         layer: layer.layer,
         children: this._treeLayers_handle(layer.children)
       });
     });
+    // 图层排序
     _treeLayers.sort((a, b) => {
       if (a.layer.location.top === b.layer.location.top) {
         return a.layer.location.left - b.layer.location.left;
@@ -370,6 +395,8 @@ export class CoderManager {
   private async _readLayers(): Promise<LeUIHtml.Layer[]> {
     const dom_layers = document.getElementsByClassName("layer");
     let layers: LeUIHtml.Layer[] = [];
+
+    // 同名过滤 tiaojian
     for (let i = 0; i < dom_layers.length; i++) {
       const element = dom_layers[i];
       const attributes = element.attributes;
@@ -427,7 +454,7 @@ export class CoderManager {
         });
 
         (element as any).click();
-        await CoderManagerUtil.delay(200);
+        await CoderManagerUtil.delay(100);
         const cssPanel = document.getElementById("css-panel");
         if (cssPanel) {
           const telement = cssPanel.querySelector("textarea#css");
@@ -456,13 +483,50 @@ export class CoderManager {
               }
             }
           }
-          // 类型分析器，暂时未拆出去
         }
         layer.type = this._getLayerType(layer, inspector);
 
         layers.push(layer);
       }
     }
+    console.log(layers, "layers start");
+    // 忽略小特征，开发手动加
+    layers = layers.filter(layer => {
+      return layer.size.height >= 3 && layer.size.width >= 3;
+    });
+
+    // 新增禁用区域算法
+    const bannedPolygons: LeUIHtml.Layer[] = [];
+    const sameTitleMap: Map<string, LeUIHtml.Layer> = new Map();
+    layers.forEach(layer => {
+      // 禁用头部区域
+      if (
+        layer.location.top === 0 &&
+        layer.percentageSize.width === 100 &&
+        layer.percentageSize.height < 20
+      ) {
+        bannedPolygons.push(layer);
+      }
+      // 搜集相似区域
+      const sameTitleLayer = sameTitleMap.get(layer.title);
+      if (
+        sameTitleLayer
+        // layer.title.includes("Copy") ||
+        // layer.title.includes("复制")
+      ) {
+        bannedPolygons.push(layer);
+      } else {
+        sameTitleMap.set(layer.title, layer);
+      }
+    });
+
+    layers = layers.filter(layer => {
+      return !bannedPolygons.find(blayer =>
+        CoderManagerUtil.inCludeContainsPolygon(blayer, layer)
+      );
+    });
+
+    console.log(layers, "layers after");
     return layers;
   }
   /**

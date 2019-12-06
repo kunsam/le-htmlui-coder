@@ -9,6 +9,7 @@ const config = {
   node: {
     fs: "empty"
   },
+  devtool: 'source-map',
   module: {
     rules: [
       {

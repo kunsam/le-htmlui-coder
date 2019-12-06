@@ -11,8 +11,6 @@ import "antd/lib/select/style/index.css";
 import "antd/lib/message/style/index.css";
 // const prettier = require("prettier");
 
-
-
 // 空图层处理
 // 需要合并多余图层
 // 需要文字下降梯度，用于指定文字tag类型
@@ -87,7 +85,7 @@ export class ReactWebCoder implements CoderClass {
       }
 
       if (tlayer.layer.type === LeUIHtml.LayerType.list) {
-        result.html += `\n${tabString}\{\/* List *\/\}\n`;
+        result.html += `${tabString}\{\/* List *\/\}\n`;
         const d1Tab = new Array(depth + 1).fill("  ").join("");
         result.html += `${tabString}{this.props.list.map((item, index) => (\n`;
         result.html += `${d1Tab}<Item key={\`item\$\{index\}\`}>\n`;
@@ -107,6 +105,7 @@ export class ReactWebCoder implements CoderClass {
         result.html += `${tabString}</${tlayerElementTag}>\n`;
       }
     });
+    result.html += '\n'
     return result;
   }
   /**
@@ -177,14 +176,13 @@ export class ReactWebCoder implements CoderClass {
   public handleTreeLayers(
     treeLayers: LeUIHtml.LayerTreeNode[],
     parent: ReactWebLayerNodeData = null,
-    containerIndex: number = 1,
-    imgIndex: number = 1,
-    listIndex: number = 1
+    counter: {
+      containerIndex: number;
+      listIndex: number;
+      imgIndex: number;
+    }
   ): ReactWebLayerNode[] {
     let reactTreeLayers: ReactWebLayerNode[] = [];
-    // let containerIndex = 1;
-    // let imgIndex = 1;
-
     let textTotalInThisLevel = 0;
     treeLayers.forEach(tlayer => {
       if (tlayer.layer.type === LeUIHtml.LayerType.text) {
@@ -199,32 +197,33 @@ export class ReactWebCoder implements CoderClass {
       if (treeLayer.layer.type === LeUIHtml.LayerType.container) {
         htmlTag = "div";
         tagProps = {
-          className: `"container-${containerIndex}"`
+          className: `"container-${counter.containerIndex}"`
         };
-        containerIndex++;
+        counter.containerIndex++;
       }
       if (treeLayer.layer.type === LeUIHtml.LayerType.element) {
         htmlTag = "span";
         tagProps = {
-          className: `"element-${elementIndex}"`
+          className: `"element-${elementIndex}"`,
+          name: `"${treeLayer.layer.title}"`
         };
         elementIndex++;
       }
       if (treeLayer.layer.type === LeUIHtml.LayerType.list) {
-        htmlTag = "List";
+        htmlTag = "div";
         tagProps = {
-          className: `"list-${listIndex}"`
+          className: `"list-${counter.listIndex}"`
         };
-        listIndex++;
+        counter.listIndex++;
       }
       if (treeLayer.layer.type === LeUIHtml.LayerType.picture) {
         htmlTag = "img";
         tagProps = {
           alt: `""`,
           src: `{require(\`path\`)}`,
-          className: `"img-${imgIndex}"`
+          className: `"img-${counter.imgIndex}"`
         };
-        imgIndex++;
+        counter.imgIndex++;
       }
       if (treeLayer.layer.type === LeUIHtml.LayerType.text) {
         // h(?) -> 标题
@@ -262,13 +261,7 @@ export class ReactWebCoder implements CoderClass {
       reactTreeLayers.push({
         ...data,
         parent,
-        children: this.handleTreeLayers(
-          treeLayer.children,
-          data,
-          containerIndex,
-          imgIndex,
-          listIndex
-        )
+        children: this.handleTreeLayers(treeLayer.children, data, counter)
       });
     });
 
@@ -306,7 +299,6 @@ export class ReactWebCoder implements CoderClass {
           </div>
         ),
         onOk: () => {
-          console.log(this, "OK");
           if (chooseArtBoardIndex !== null && queryName) {
             const queryMap = this._classNameQueryLayerMaps[chooseArtBoardIndex];
             if (queryMap) {
@@ -342,7 +334,11 @@ export class ReactWebCoder implements CoderClass {
   public output(artboards: LeUIHtml.Artboard[]) {
     var zip = new JSZip();
     artboards.forEach((artboard, index) => {
-      const treeLayers = this.handleTreeLayers(artboard.treeLayers);
+      const treeLayers = this.handleTreeLayers(artboard.treeLayers, null, {
+        containerIndex: 1,
+        imgIndex: 1,
+        listIndex: 1
+      });
       this._classNameQueryLayerMaps[index] = new Map();
       this._setQueryMap(treeLayers, index);
       const artboardFolder = zip.folder(`${artboard.id}`);
