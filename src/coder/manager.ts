@@ -206,7 +206,11 @@ export class CoderManager {
           }
         });
       });
-
+      layers.forEach(layer => {
+        if (!parentMap.has(layer.id) && !childrensMap.has(layer.id)) {
+          childrensMap.set(layer.id, {});
+        }
+      });
       console.log(cloneDeep(childrensMap), "childrensMap");
 
       // 递归计算
