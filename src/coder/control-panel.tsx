@@ -177,6 +177,7 @@ export class ControlPanel extends React.Component<any, any> {
         }}
       >
         <Input
+          style={{ width: 200 }}
           onChange={e => {
             this._developerId = e.target.value;
           }}
