@@ -14,7 +14,9 @@
   "dependencies": {
     "@types/node": "^12.12.5",
     "@types/polygon": "^1.0.0",
+    "@types/react-dom": "^16.9.4",
     "antd": "^3.26.0",
+    "copy-to-clipboard": "^3.2.0",
     "file-saver": "^2.0.2",
     "jszip": "^3.2.2",
     "lodash": "^4.17.15",

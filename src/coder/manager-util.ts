@@ -88,7 +88,7 @@ export class CoderManagerUtil {
   public static getStringProperties(text: string) {
     let pros: { property: string; value: string }[] = [];
     text
-      .replace(/\s/g, "")
+      .replace(/[\n]/g, "")
       .split(";")
       .forEach(pair => {
         if (!pair) {
