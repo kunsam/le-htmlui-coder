@@ -17,29 +17,31 @@ export class ControlPanel extends React.Component<any, any> {
         return;
       }
       if (e.target) {
-        const layer = CoderManager.getLayerFromElement(e.target);
-        console.log(layer, "layer");
-        if (!layer) {
-          return;
-        }
-        switch (this._currentMode) {
-          case "Web": {
-            this.output(this.getWebCode(layer));
-            break;
+        setTimeout(() => {
+          const layer = CoderManager.getLayerFromElement(e.target);
+          console.log(layer, "layer");
+          if (!layer) {
+            return;
           }
-          case "Web Style": {
-            this.output(this.getWebStyleCode(layer));
-            break;
+          switch (this._currentMode) {
+            case "Web": {
+              this.output(this.getWebCode(layer));
+              break;
+            }
+            case "Web Style": {
+              this.output(this.getWebStyleCode(layer));
+              break;
+            }
+            case "React Native": {
+              this.output(this.getRNCode(layer));
+              break;
+            }
+            case "React Native Style": {
+              this.output(this.getRNStyleCode(layer));
+              break;
+            }
           }
-          case "React Native": {
-            this.output(this.getRNCode(layer));
-            break;
-          }
-          case "React Native Style": {
-            this.output(this.getRNStyleCode(layer));
-            break;
-          }
-        }
+        }, 200);
       }
     });
   }
