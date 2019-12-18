@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Button, message } from "antd";
+import { Button, message, Input } from "antd";
 import "antd/lib/button/style/index.css";
 import { CoderManager } from "./manager";
 import { LeUIHtml } from "../typings";
@@ -9,6 +9,7 @@ import queryString from "query-string";
 
 export class ControlPanel extends React.Component<any, any> {
   private _currentMode: string = "";
+  private _developerId: string = "";
 
   componentDidMount() {
     document.addEventListener("click", e => {
@@ -47,15 +48,15 @@ export class ControlPanel extends React.Component<any, any> {
     if (result) {
       copy(result);
       message.success("成功复制到剪切板");
-      const currentUrlQuery = queryString.parse(window.location.search);
-      const { developerId = "10.0.1.40" } = currentUrlQuery;
-      // 开发人员ip地址
-      let url = `http://${developerId}:3778/data?resultString=${encodeURIComponent(
-        result
-      )}`;
-      fetch(url, {
-        method: "GET"
-      });
+      if (this._developerId) {
+        // 开发人员ip地址
+        let url = `http://${
+          this._developerId
+        }:3778/data?resultString=${encodeURIComponent(result)}`;
+        fetch(url, {
+          method: "GET"
+        });
+      }
     }
   };
 
@@ -175,6 +176,11 @@ export class ControlPanel extends React.Component<any, any> {
           zIndex: 999
         }}
       >
+        <Input
+          onChange={e => {
+            this._developerId = e.target.value;
+          }}
+        ></Input>
         {this.ModeButtons.map(button => (
           <Button
             key={button}
