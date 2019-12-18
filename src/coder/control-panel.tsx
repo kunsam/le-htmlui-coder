@@ -89,14 +89,24 @@ export class ControlPanel extends React.Component<any, any> {
     }
   };
 
-  getWebStyleCode = (tlayer: LeUIHtml.Layer) => {
+  getWebStyleCode = (layer: LeUIHtml.Layer) => {
     const depth = 0;
     let string = "";
     const tabString = new Array(depth).fill("  ").join("");
-    string += `.${tlayer.id.replace(/\"/g, "").replace(/\-/g, "")}`;
+    string += `.${layer.id.replace(/\"/g, "").replace(/\-/g, "")}`;
     string += `{\n`;
     const contentTabString = new Array(depth + 1).fill("  ").join("");
-    tlayer.codeTemplate.css.codes.forEach(code => {
+    layer.codeTemplate.css.codes = layer.codeTemplate.css.codes.concat([
+      {
+        property: "height",
+        value: `${layer.size.height}`
+      },
+      {
+        property: "width",
+        value: `${layer.size.width}`
+      }
+    ]);
+    layer.codeTemplate.css.codes.forEach(code => {
       string += `${contentTabString}${code.property}: ${code.value};\n`;
     });
     string += `${tabString}}\n`;
@@ -130,6 +140,16 @@ export class ControlPanel extends React.Component<any, any> {
     string += `${layer.id.replace(/\-/g, "").replace(/\"/g, "")}: `;
     string += `{\n`;
     const contentTabString = new Array(depth + 1).fill("  ").join("");
+    layer.codeTemplate.css.codes = layer.codeTemplate.css.codes.concat([
+      {
+        property: "height",
+        value: `${layer.size.height}`
+      },
+      {
+        property: "width",
+        value: `${layer.size.width}`
+      }
+    ]);
     layer.codeTemplate.css.codes.forEach((code, codeIndex) => {
       code.value = code.value.replace(/^\s/, "");
       let isPxValue = /px$/.test(code.value);
