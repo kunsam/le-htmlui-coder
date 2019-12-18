@@ -101,11 +101,11 @@ export class ControlPanel extends React.Component<any, any> {
     layer.codeTemplate.css.codes = layer.codeTemplate.css.codes.concat([
       {
         property: "height",
-        value: `${layer.size.height}`
+        value: `${layer.size.height}px`
       },
       {
         property: "width",
-        value: `${layer.size.width}`
+        value: `${layer.size.width}px`
       }
     ]);
     layer.codeTemplate.css.codes.forEach(code => {
