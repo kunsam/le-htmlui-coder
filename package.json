@@ -18,7 +18,7 @@
     "antd": "^3.26.0",
     "copy-to-clipboard": "^3.2.0",
     "file-saver": "^2.0.2",
-    "jszip": "^3.2.2",
+    "jszip": "^3.7.0",
     "lodash": "^4.17.15",
     "polygon": "^1.0.2",
     "prettier": "^1.19.1",
